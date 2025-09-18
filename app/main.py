@@ -15,15 +15,26 @@ async def run():
 
     periods = {"24h": 1, "7d": 7, "30d": 30}
     results = {}
+    # Obtain anchor date once by asking for aggregate 1 day (which internally finds anchor) but we also need anchor logic.
+    # We'll call the private determination helper indirectly by reusing aggregate for 1 day then re-determining.
+    # Simplest: call protected method via name (acceptable here for internal script).
+    try:
+        anchor_date = await client._determine_latest_available_date()  # type: ignore
+    except Exception:
+        anchor_date = None
     for label, days in periods.items():
         units = await client.aggregate_units(days)
         results[label] = units
 
     lines = [":iphone: App Store Download Units Summary"]
+    if anchor_date:
+        lines.append(f"Data through: {anchor_date.isoformat()} (UTC)")
+    else:
+        lines.append("Data through: UNKNOWN (anchor date not found)")
     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     for label, units in results.items():
         val = str(units) if units is not None else 'N/A'
-        lines.append(f"• Last {label}: {val}")
+        lines.append(f"• Period {label}: {val}")
     lines.append(f"Timestamp: {timestamp}")
 
     content = "\n".join(lines)
